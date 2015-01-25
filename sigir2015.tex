@@ -1,0 +1,254 @@
+\documentclass{sig-alternate}
+%\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{amsmath,amsfonts,amssymb}
+%\usepackage{subfigure}
+%\usepackage{multirow}
+\usepackage{url}
+\usepackage{color}
+
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+\newcommand{\ignore}[1]{}
+
+\begin{document}
+
+\title{Information retrieval using temporally smoothed language models}
+
+%\ignore{
+\numberofauthors{2}
+\author{
+Craig Willis, Miles Efron\\[1ex]
+\affaddr{Graduate School of Library and Information Science, University of Illinois, Urbana-Champaign}\\
+\affaddr{\{willis8, mefron\}@illinois.edu}
+}
+%}
+
+\maketitle
+\begin{abstract}
+
+This paper presents a novel approach to utilizing temporal information to improve the effectiveness of ad hoc information retrieval (IR).  While temporally-informed IR is an active research area, previous work has focused mainly on improving ranking by analysis of the timestamps associated with retrieved documents.  In contrast, we integrate time more directly into retrieval via the smoothing of language models.  In our approach, document models are smoothed using  \emph{temporal language models}--language models corresponding to a period in time (e.g., day, week, or month) in a collection. We present three temporal smoothing methods and evaluate them using seven standard TREC collections. We show that document smoothing using temporal language models improves retrieval effectiveness over state-of-the art approaches. We demonstrate that this method complements established approaches that operate on document timestamp distributions.
+
+\end{abstract}
+
+
+%% section: introduction
+\section{Introduction}\label{section.intro}
+
+Temporality is an intrinsic characteristic of information systems. Documents are published at particular
+points in time, users issue queries over time, collections have temporal constraints, languages and 
+writing styles even change over time. Temporal constraints, such as date ranges and sort-by options, 
+have long been standard features of search interfaces for decades.  However, even today general-purpose
+retrieval algorithms do not directly incorporate temporal information. 
+
+Over the past decade, researchers have explored the role of temporal information in a variety of 
+retrieval contexts.  Studies have explored techniques for extracting temporal expressions \cite{Childs1999, Arikan2009, Alonso2012, Lin2014}, studied the temporal dynamics of language \cite{Michel2011a}, documents \cite{Teevan2009}, queries \cite{Jones2007, Shokouhi2011}, and users' behaviors \cite{Radinsky2012}.  Numerous models have been proposed incorporating temporal information into the retrieval process, generally relying on the analysis of timestamps associated with documents \cite{Li2003, Dakka2012, Efron2011, Efron2014, Peetz2013a}. Closer to the work presented in this paper, \cite{DeJong2005} used language models for temporal intervals to date historical texts.
+
+In this paper we study how temporal information can be directly incorporated into the language modeling framework through the use of \emph{temporal language models}.  Similar to \cite{DeJong2005}, temporal language models are language models corresponding to a period in time (e.g., day, week, or month) in a document collection.  We propose that temporal language models can be used to smooth document language models, improving model estimation and retrieval effectiveness. This work can be seen as building on the temporal retrieval models of \cite{Li2003, Dakka2012, Efron2011, Efron2014} and the cluster- or LDA-based smoothing methods proposed by \cite{Liu2004} and \cite{Wei2006}.
+
+To our knowledge, temporal language models have never been used in this way.  Earlier work in \cite{DeJong2005} used temporal language models to predict the date of historical documents.
+
+\section{Related work}
+
+\subsection{Temporal information retrieval}
+
+Li and Croft \cite{Li2003} were the first to suggest that documents can be scored based on a combination of lexical and temporal information, which they refer to as ``time-based language models''. Working within the language modeling framework \cite{Ponte1998}, they incorporate temporal information via an exponential prior modeling the relevancy of documents based on timestamps. This later became known as a ``recency model'' because it heavily favors recent documents.
+
+This basic model was later extended by  Dakka, Gravano, and Ipeirtos \cite{Dakka2012} to support any time-sensitive query. After an initial retrieval, a histogram is created from document timestamps and bins are re-ordered by descending magnitude. An exponential distribution is used to model the importance of documents in each bin, with a global rate parameter estimated for the collection.  Efron, and Golovchinsky \cite{Efron2011} further refine this model to allow for query-specific estimation of the exponential rate parameter.  Finally, Efron, Lin, He and de Vries \cite{Efron2014} replace the histogram approach with a kernel-density estimator (KDE) to estimate the query-specific temporal distribution of results.  Each of these methods depends on an initial retrieval to estimate the distribution of document timestamps.
+
+In each of these models, temporal information is assumed to be independent of the lexical information. Standard query likelihood scores are combined with the temporal scores based on this assumption.
+
+Efron and Golovchinsky \cite{Efron2011} also explore a novel model using temporal information to smooth the document language model. In this case, the smoothing parameter $\lambda_t$ in Jelinek-Mercer smoothing is learned based on the temporal distribution of results. The amount of smoothing for each document varies depending on the time of each document $d$.
+
+\subsection{Temporally-estimated relevance models}
+
+Each of the above models is also considered in the context of relevance models \cite{Lavrenko2001}. In general, the temporal models are used to score documents in an initial retrieval that are then used to construct relevance models.  Peetz, Meij, and Rijke \cite{Peetz2013a} propose an alternative query modeling approach that relies on the identification of temporal ``bursts'' in pseudo-feedback. 
+
+\subsection{Document-specific smoothing}
+
+As noted by Zhai \cite{Zhai2008}, smoothing all documents with the same collection language model seems suboptimal. Document-dependent smoothing strategies, such as those proposed in \cite{Liu2003} and  \cite{Wei2006}, instead smooth the document language model with a separate, document-dependent model constructed using methods such as clustering or topic modeling.  The models of Liu and Croft \cite{Liu2003} and \cite{Wei2006} serve as a basis for the work proposed here. In both of these studies, a two-phase smoothing method is used. The cluster or LDA-based language model is first smoothed by the collection language model using Jelinek-Mercer smoothing.  The resulting smoothed model is then used to smooth the document language model using Dirichlet smoothing. This approach is adopted in the models described below.
+
+\section{Temporal language models}
+
+We define a \textit{temporal language model} as a unigram model of terms in a collection at time or interval $t$.  We can imagine that the language model for a collection for the year 1900 is different than a language model for 1950.  In a stream of news, the language model for 1995 might be different than the language model for 2000. From this, we can define a generative model of either queries or documents. Given some interval $t$, the probability that the interval generated the query (or document) can be estimated as $p(q \vert \theta_t)$. The interval could be an hour, day, week, or year, depending on the characteristics of the collection.
+
+\subsection{Model 1: Independent evidence}
+
+Following \cite{Dakka2012} we can directly score documents using the document and temporal language models treated independently: 
+
+\[ 
+p_{TD}(d \vert q) \propto p(q \vert \theta_d) \cdot p(d) \cdot p(q \vert \theta_t) \cdot p(t)
+\]
+
+Where $\theta_d$ is the document language model and $\theta_t$ is the temporal language model. We refer to this as Model 1.
+
+\subsection{Model 2: Smoothing using the temporal language model based on document time}
+
+Following \cite{Liu2004} and \cite{Wei2006}, we can smooth the document language model using the temporal language model and a two-phase smoothing approach:
+
+\[
+p_{TSM}(w \vert d) = \dfrac{n(w,D) + \mu \cdot \left[ (1-\alpha) \cdot p(w\vert \theta_t) + \alpha \cdot p(w \vert \theta_c)\right]}{n(D) + \mu}
+\]
+
+Where $\theta_t$ is the temporal language model for the document time $d_t$ and  $\theta_c$ is the collection language model. Under this model, temporal evidence is no longer treated as independent. The two-stage smoothing approach can use either Jelinek-Mercer or Dirichlet smoothing for either stage.  In their study of smoothing methods, \cite{Zhai2004} found that Dirichlet smoothing was more effective for explaining unseen words while Jelinek-Mercer was more effective for explaining noise in the query for longer queries.
+
+\subsection{Model 3: Smoothing using the most likely temporal language model}
+
+Loosening the restriction that a document was generated based on the language model associated with publication time, we can instead smooth using the temporal language model that is most likely to have generated the document. For each document, the temporal language model used for smoothing is selected using Kullback-Liebler divergence $KL(\theta_d || \theta_t)$.
+
+\[
+p_{BMN}(w \vert d) = \dfrac{n(w,D) + \mu \cdot \left[ (1-\alpha) \cdot p(w\vert \pi_t) + \alpha \cdot p(w \vert \theta_c)\right]}{n(D) + \mu}
+\]
+
+Where $\pi_t$ is the temporal language model with the smallest KL-divergence from the document language model:
+\[
+p(\pi_i \vert D) = f(KL(\pi_i \vert \theta_d))
+\]
+
+\subsection{Model 4: Smoothing using weighted average of all temporal language models}
+
+Instead of smoothing by a single language model, following the approach used by \cite{Wei2006}, we can smooth the document using the weighed combination of all temporal language models.
+
+\[
+p_{TSA}(w \vert D)= \sum_{t=1}^{K} p(w \vert \theta_t) p(\theta_t \vert D)
+\]
+
+Where the $p(\theta_t \vert D) \sim KL(\theta_c \vert\vert \theta_t)$.
+
+
+\subsection{Estimating temporal language models}
+
+Adopting a unigram multinomial language model for $\theta_t$, the next step is to estimate $p(w \vert \theta_t)$.  
+The simplest approach is to use the maximum likelihood estimator:
+
+\[
+p_{MLE} (w \vert \theta_t) = \dfrac{n(w, t)}{n(t)}
+\]
+
+Where $t$ is the temporal interval. In our experiments we found the MLE model to be too similar too 
+the collection model, dampening the effect of the available temporal information. We explored two
+different approaches to enhancing the temporal language model.  
+
+First, we instead used the normalized pointwise mutual information:
+
+\[
+npmi(w;t) = \dfrac{\log \dfrac{p(w,t)}{p(w)p(t)}}{-\log[p(w,t)]}
+\]
+
+The resulting value ranges from -1 to 1. For estimating $p(w \vert t)$, all values less than zero were treated as 0:
+
+\[
+p_{NPMI} (w \vert t) = \dfrac{npmi(w;t)}{\sum_{w \in W} npmi(w; t)}
+\]
+
+Second, we used the likelihood ratio test to restrict the terms allowed in the model $\theta_t$. Setting $\alpha=0.01$, 
+only terms $w$ found to be significantly associated with time $t$ are added to the model.
+
+\section{Experiments and results}
+\subsection{Data}
+
+%\begin{table*}[t]
+\begin{table}[htdp]
+\small
+\caption{Test collection details.  }
+\begin{center}
+\tabcolsep=0.11cm
+\begin{tabular}{| l | l | l | l | }
+\hline
+\bf{Collection} & \bf{\# docs}  & \bf{Queries} & \bf{\# queries} \\ \hline
+AP & 242,918 & 51-150 & 99 \\ \hline
+FT & 210,158 & 301-400 & 95 \\ \hline
+SJM & 90,257 & 51-150 & 94 \\ \hline
+LA & 131,896 & 301-400 & 98 \\ \hline
+WSJ & 173,252 & 51-100, 151-200 & 100 \\ \hline
+Tweets2011 & 11,908,899 & 1-49  50-110  & 110\\ \hline
+\end{tabular}
+\end{center}
+\label{table.results}
+\normalsize
+%\end{table*}
+\end{table}
+
+\subsection{Parameter estimation}
+
+tsm kl ap $\lambda=0.05$
+tsm kl ap npmi $\lambda=0.05$
+
+tsm rm3 ap $\lambda=0.00$
+tsm rm3 ap npmi $\lambda=0.00$
+
+tsm kl tweets2011 $\lambda=0.25$
+tsm kl tweets2011 npmi$\lambda=0.25$
+
+tsm rm3 tweets2011 $\lambda=0.05$
+tsm rm3 tweets2011 npmi $\lambda=0.05$
+
+bmn kl ap $\lambda=0.05$
+bmn rm3 ap $\lambda=0.15$
+bmn kl tweets2011 $\lambda=0.05$
+bml  rm3 tweets2011 $\lambda=0.05$
+
+tsa kl ap $\lambda=0.05$
+tsa rm3 ap $\lambda=0.15$
+
+tsa kl tweets2011 $\lambda=0.15$
+tsa rm3 tweets2011 $\lambda=0.10$
+
+kde kl ap $\lambda=0.35$
+kde rm3 ap $\lambda=0.15$
+
+kde kl tweets2011 $\lambda=0.45$
+kde rm3 tweets2011 $\lambda=0.05$
+
+
+($\blacktriangle/\blacktriangledown = 0.01; \triangle/\triangledown = 0.05; \uparrow/\downarrow = 0.10$)
+
+\begin{table*}[t]
+\small
+\caption{Comparison of query likelihood (QL) with temporal models. }
+\begin{center}
+\tabcolsep=0.11cm
+\begin{tabular}{l | l | l | l | l | l | l | l}
+\hline
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+1 KL & 0.1885  & 0.2571  & 0.2373  & 0.1951  & 0.2724  & 0.2503  & 0.2049 \\ \hline 
+2 KDE & 0.1894  & 0.2539 $^{\downarrow}$  & 0.2393  & 0.1939  & 0.2722  & 0.2623 $^{\blacktriangle}$  & 0.2146 $^{\blacktriangle}$ \\ \hline 
+3 TSM & 0.1884  & 0.2563  & 0.2360 $^{\triangledown}$  & 0.1941 $^{\downarrow}$  & 0.2717 $^{\downarrow}$  & 0.2334  & 0.1580 $^{\blacktriangledown}$ \\ \hline 
+4 BMN & 0.1883  & 0.2591  & 0.2388  & 0.1901 $^{\triangledown}$  & 0.2712  & 0.2000 $^{\blacktriangledown}$  & 0.1565 $^{\blacktriangledown}$ \\ \hline 
+5 TSA & 0.1889  & 0.2589 $^{\blacktriangle}$  & 0.2395 $^{\triangle}$  & 0.1948  & 0.2726  & 0.2229 $^{\blacktriangledown}$  & 0.1692 $^{\blacktriangledown}$ \\ \hline 
+\end{tabular}
+\end{center}
+\label{table.results}
+\normalsize
+\end{table*}
+\begin{table*}[t]
+\small
+\caption{Comparison of relevance models (RM3) with temporal models. }
+\begin{center}
+\tabcolsep=0.11cm
+\begin{tabular}{l | l | l | l | l | l | l | l}
+\hline
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+1 RM3 & 0.2098  & 0.2684  & 0.2485  & 0.2145  & 0.2975  & 0.2895  & 0.2406 \\ \hline 
+2 KDE & 0.2102  & 0.2680  & 0.2477  & 0.2137  & 0.2954 $^{\triangledown}$  & 0.2890  & 0.2427 \\ \hline 
+3 TSM & 0.1884 $^{\blacktriangledown}$  & 0.2563 $^{\blacktriangledown}$  & 0.2360 $^{\blacktriangledown}$  & 0.1941 $^{\blacktriangledown}$  & 0.2717 $^{\blacktriangledown}$  & 0.2370 $^{\triangledown}$  & 0.1583 $^{\blacktriangledown}$ \\ \hline 
+4 BMN & 0.2102  & 0.2717  & 0.2524 $^{\uparrow}$  & 0.2092 $^{\triangledown}$  & 0.2970  & 0.2167 $^{\blacktriangledown}$  & 0.1707 $^{\blacktriangledown}$ \\ \hline 
+5 TSA & 0.2123 $^{\uparrow}$  & 0.2721 $^{\uparrow}$  & 0.2551 $^{\triangle}$  & 0.2172  & 0.2971  & 0.2448 $^{\blacktriangledown}$  & 0.1896 $^{\blacktriangledown}$ \\ \hline 
+\end{tabular}
+\end{center}
+\label{table.results}
+\normalsize
+\end{table*}
+
+
+
+\subsection{Conclusion and future work}
+
+
+\section{Discussion}
+
+  
+\bibliographystyle{abbrv} 
+\bibliography{sigir2015}
+
+\end{document}
