@@ -62,11 +62,11 @@ Efron and Golovchinsky \cite{Efron2011} also explore a novel model using tempora
 
 \subsection{Temporally-estimated relevance models}
 
-Each of the above models is also considered in the context of relevance models \cite{Lavrenko2001}. In general, the temporal models are used to score documents in an initial retrieval that are then used to construct relevance models.  Peetz, Meij, and Rijke \cite{Peetz2013a} propose an alternative query modeling approach that relies on the identification of temporal ``bursts'' in pseudo-feedback. 
+Each of the above models is also considered in the context of relevance models \cite{Lavrenko2001}. In general, the temporal models are used to score documents in an initial retrieval which are then used to construct relevance models.  Peetz, Meij, and Rijke \cite{Peetz2013a} propose an alternative query modeling approach that relies on the identification of temporal ``bursts'' in pseudo-feedback. 
 
 \subsection{Document-specific smoothing}
 
-As noted by Zhai \cite{Zhai2008}, smoothing all documents with the same collection language model seems suboptimal. Document-dependent smoothing strategies, such as those proposed in \cite{Liu2003} and  \cite{Wei2006}, instead smooth the document language model with a separate, document-dependent model constructed using methods such as clustering or topic modeling.  The models of Liu and Croft \cite{Liu2003} and \cite{Wei2006} serve as a basis for the work proposed here. In both of these studies, a two-phase smoothing method is used. The cluster or LDA-based language model is first smoothed by the collection language model using Jelinek-Mercer smoothing.  The resulting smoothed model is then used to smooth the document language model using Dirichlet smoothing. This approach is adopted in the models described below.
+As noted by Zhai \cite{Zhai2008}, the usual approach of smoothing all documents with the same collection language model seems suboptimal. Document-dependent smoothing methods, such as those proposed in \cite{Liu2004} and  \cite{Wei2006}, instead smooth the document language model with document-dependent models constructed using methods such as clustering or topic modeling. Liu and Croft \cite{Liu2004} use k-means to cluster documents and create cluster language models.  Wei and Croft \cite{Wei2006} use latent Dirichlet allocation (LDA) to calculate topic models. Both studies use a two-phase smoothing approach. The cluster or topic language models are smoothed using the collection language model.  The resulting model is then used to smooth the document language model.  Either Jelinek-Mercer or Dirichlet smoothing can be used in either phase, but both studies reported results using Jelinek-Mercer for the first phase and Dirichlet for the second. This general approach is adopted in the models described below.
 
 \section{Temporal language models}
 
@@ -147,6 +147,15 @@ only terms $w$ found to be significantly associated with time $t$ are added to t
 \section{Experiments and results}
 \subsection{Data}
 
+Experiments were conducted using seven TREC test collections. The first five collections were included for comparability to \cite{Liu2004} and \cite{Wei2006}. 
+These include the Associated Press Newswire (AP) 1988-90 with queries 51-150; Financial Times (FT) 1991-94 with queries 301-400; 
+Los Angeles Times (LA) with queries 301-400; San Jose Mercury News (SJM) 1991 with queries 51-150; 
+and Wall Street Journal (WSJ) 1987-92 with queries 51-100 and 151-200. 
+Additional experiments were conducted using the Tweets2011 test collection with queries 1-49 and 50-110.  
+Queries were constructed using only the ``title'' field of the TREC topics. The standard relevance judgments were used. 
+Queries with no documents in the judged pool for a collection were removed.  Information about each collection is presented in Table \ref{table.details}. 
+ [Describe Tweets2011 corpus...] All documents and queries are stemmed using the Krovetz \cite{} stemmer and stopwords removed.
+
 %\begin{table*}[t]
 \begin{table}[htdp]
 \small
@@ -164,79 +173,116 @@ WSJ & 173,252 & 51-100, 151-200 & 100 \\ \hline
 Tweets2011 & 11,908,899 & 1-49  50-110  & 110\\ \hline
 \end{tabular}
 \end{center}
-\label{table.results}
+\label{table.details}
 \normalsize
 %\end{table*}
 \end{table}
 
 \subsection{Parameter estimation}
 
-tsm kl ap $\lambda=0.05$
-tsm kl ap npmi $\lambda=0.05$
+Following \cite{Liu2004} and \cite{Wei2006}, the AP collection is used as the training collection to estimate parameters that are then tested on the FT, LA, SJM, and WSJ collections. 
+The Tweets2011 collection (queries 1-49) is used to estimate parameters that are then tested on queries 50-110. Models are optimized for mean average precision (MAP) using a focused search.
 
-tsm rm3 ap $\lambda=0.00$
-tsm rm3 ap npmi $\lambda=0.00$
+\subsubsection{Temporal interval}
 
-tsm kl tweets2011 $\lambda=0.25$
-tsm kl tweets2011 npmi$\lambda=0.25$
+An important parameter in definition of temporal language models is the temporal interval.  Using the training collection, we explored  daily, weekly, bi-weekly, and monthly intervals.
 
-tsm rm3 tweets2011 $\lambda=0.05$
-tsm rm3 tweets2011 npmi $\lambda=0.05$
+Chart performance with different temporal intervals.
 
-bmn kl ap $\lambda=0.05$
-bmn rm3 ap $\lambda=0.15$
-bmn kl tweets2011 $\lambda=0.05$
-bml  rm3 tweets2011 $\lambda=0.05$
+\subsubsection{LDA-based language models}
 
-tsa kl ap $\lambda=0.05$
-tsa rm3 ap $\lambda=0.15$
+For the LDA-based language models, we attempted to repeat the experiment described in \cite{Wei2006} using off-the-shelf software, specifically Mallet 2.0.7. The Mallet LDA implementation
+has several parameters including the number of topics, number of sampling iterations, and burn-in. For the number of topics, we used 800 as identified by Wei and Croft. Because the implementations
+differ significantly, we cannot use the number of iterations and chains specified by Wei and Croft. We explored several combinations including 500/100, the Mallet default 1000/200, and 5000/1000. 
+We found the effectiveness and speed of the Mallet default 1000/200 to be adequate for this study \footnote{We did find that increasing the number of iterations improved effectiveness, sometimes significantly. However, since 
+LDA-based language models are not the focus of this study, we accepted the default values.}  We accept the original paper's values for the smoothing parameters $\lambda=0.07$ and $\mu=1000$.
 
-tsa kl tweets2011 $\lambda=0.15$
-tsa rm3 tweets2011 $\lambda=0.10$
+\subsubsection{Temporal smoothing parameters}
 
-kde kl ap $\lambda=0.35$
-kde rm3 ap $\lambda=0.15$
+For each of the temporal models, we must estimate the mixing parameter $\lambda$.  As noted above, the AP and Tweets2011 collections are used for training. Separate values are estimated for 
+both feedback $\lambda_{RM3}$ and non-feedback $\lambda_{QL}$ scenarios.
 
-kde kl tweets2011 $\lambda=0.45$
-kde rm3 tweets2011 $\lambda=0.05$
+Table \ref{table.params}
+
+\begin{table}[htdp]
+\small
+\caption{Parameter estimates. }
+\begin{center}
+\begin{tabular}{| l | l | l |}
+\hline
+\bf{Model}& \bf{AP} 								&  \bf{Tweets2011}\\ \hline 
+KDE 	& $\alpha_{QL} = 0.35, \alpha_{RM3} = 0.15$ 		& $\alpha_{QL} = 0.45, \alpha_{RM3} = 0.05$ \\
+TSM 	& $\lambda_{QL} = 0.05, \lambda_{RM3} = 0.05$ 	& $\lambda_{QL} = 0.25, \lambda_{RM3} = 0.05$ \\ 
+BMN 	& $\lambda_{QL} = 0.05, \lambda_{RM3} = 0.15$ 	& $\lambda_{QL} = 0.05, \lambda_{RM3} = 0.05$ \\ 
+TSA 		& $\lambda_{QL} = 0.05, \lambda_{RM3} = 0.15$ 	& $\lambda_{QL} = 0.15, \lambda_{RM3} = 0.10$ \\ 
+LDA 		& $\lambda = 0.7$							& $\lambda = 0.7 $ \\ \hline
+\end{tabular}
+\end{center}
+\label{table.params}
+\normalsize
+\end{table}
 
 
-($\blacktriangle/\blacktriangledown = 0.01; \triangle/\triangledown = 0.05; \uparrow/\downarrow = 0.10$)
+\section{Results}
+
+Results are presented in Table \ref{table.results.ql} and \ref{table.results.rm3}.
+
+\begin{table}[htdp]
+\small
+\caption{Symbols indicating statistically significant changes. }
+\begin{center}
+\begin{tabular}{l | l }
+\hline
+\bf{Symbol}		& \bf{Description}\\ \hline 
+$\blacktriangle$		&	$p < 0.01$ improvement against the QL baseline \\
+$\blacktriangledown$	&	$p < 0.01$ degradation against the QL baseline \\
+$\triangle$			&	$p < 0.05$ improvement against the QL baseline \\
+$\triangledown$		&	$p < 0.05$ degradation against the QL baseline \\
+$\uparrow$			&	$p < 0.10$ improvement against the QL baseline \\
+$\downarrow$			&	$p < 0.10$ degradation against the QL baseline \\
+\end{tabular}
+\end{center}
+\label{table.pval}
+\normalsize
+\end{table}
+
 
 \begin{table*}[t]
 \small
 \caption{Comparison of query likelihood (QL) with temporal models. }
 \begin{center}
 \tabcolsep=0.11cm
-\begin{tabular}{l | l | l | l | l | l | l | l}
+\begin{tabular}{| l | l | l | l | l | l | l | l |}
 \hline
-\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
-1 KL & 0.1885  & 0.2571  & 0.2373  & 0.1951  & 0.2724  & 0.2503  & 0.2049 \\ \hline 
-2 KDE & 0.1894  & 0.2539 $^{\downarrow}$  & 0.2393  & 0.1939  & 0.2722  & 0.2623 $^{\blacktriangle}$  & 0.2146 $^{\blacktriangle}$ \\ \hline 
-3 TSM & 0.1884  & 0.2563  & 0.2360 $^{\triangledown}$  & 0.1941 $^{\downarrow}$  & 0.2717 $^{\downarrow}$  & 0.2334  & 0.1580 $^{\blacktriangledown}$ \\ \hline 
-4 BMN & 0.1883  & 0.2591  & 0.2388  & 0.1901 $^{\triangledown}$  & 0.2712  & 0.2000 $^{\blacktriangledown}$  & 0.1565 $^{\blacktriangledown}$ \\ \hline 
-5 TSA & 0.1889  & 0.2589 $^{\blacktriangle}$  & 0.2395 $^{\triangle}$  & 0.1948  & 0.2726  & 0.2229 $^{\blacktriangledown}$  & 0.1692 $^{\blacktriangledown}$ \\ \hline 
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LA} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+KL & 0.1885  & 0.2571  & 0.2373  & 0.1951  & 0.2724  & 0.2503  & 0.2049 \\ \hline  \hline
+KDE & 0.1894  & 0.2539 $^{\downarrow}$  & 0.2393  & 0.1939  & 0.2722  & 0.2623 $^{\blacktriangle}$  & 0.2146 $^{\blacktriangle}$ \\ \hline 
+TSM & 0.1884  & 0.2563  & 0.2360 $^{\triangledown}$  & 0.1941 $^{\downarrow}$  & 0.2717 $^{\downarrow}$  & 0.2334  & 0.1580 $^{\blacktriangledown}$ \\ \hline 
+BMN & 0.1883  & 0.2591  & 0.2388  & 0.1901 $^{\triangledown}$  & 0.2712  & 0.2000 $^{\blacktriangledown}$  & 0.1565 $^{\blacktriangledown}$ \\ \hline 
+TSA & 0.1889  & 0.2589 $^{\blacktriangle}$  & 0.2395 $^{\triangle}$  & 0.1948  & 0.2726  & 0.2229 $^{\blacktriangledown}$  & 0.1692 $^{\blacktriangledown}$ \\ \hline 
 \end{tabular}
 \end{center}
-\label{table.results}
+\label{table.results.ql}
 \normalsize
 \end{table*}
+
+
 \begin{table*}[t]
 \small
 \caption{Comparison of relevance models (RM3) with temporal models. }
 \begin{center}
 \tabcolsep=0.11cm
-\begin{tabular}{l | l | l | l | l | l | l | l}
+\begin{tabular}{| l | l | l | l | l | l | l | l |}
 \hline
-\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
-1 RM3 & 0.2098  & 0.2684  & 0.2485  & 0.2145  & 0.2975  & 0.2895  & 0.2406 \\ \hline 
-2 KDE & 0.2102  & 0.2680  & 0.2477  & 0.2137  & 0.2954 $^{\triangledown}$  & 0.2890  & 0.2427 \\ \hline 
-3 TSM & 0.1884 $^{\blacktriangledown}$  & 0.2563 $^{\blacktriangledown}$  & 0.2360 $^{\blacktriangledown}$  & 0.1941 $^{\blacktriangledown}$  & 0.2717 $^{\blacktriangledown}$  & 0.2370 $^{\triangledown}$  & 0.1583 $^{\blacktriangledown}$ \\ \hline 
-4 BMN & 0.2102  & 0.2717  & 0.2524 $^{\uparrow}$  & 0.2092 $^{\triangledown}$  & 0.2970  & 0.2167 $^{\blacktriangledown}$  & 0.1707 $^{\blacktriangledown}$ \\ \hline 
-5 TSA & 0.2123 $^{\uparrow}$  & 0.2721 $^{\uparrow}$  & 0.2551 $^{\triangle}$  & 0.2172  & 0.2971  & 0.2448 $^{\blacktriangledown}$  & 0.1896 $^{\blacktriangledown}$ \\ \hline 
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LA} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+RM3 & 0.2098  & 0.2684  & 0.2485  & 0.2145  & 0.2975  & 0.2895  & 0.2406 \\ \hline  \hline
+KDE & 0.2102  & 0.2680  & 0.2477  & 0.2137  & 0.2954 $^{\triangledown}$  & 0.2890  & 0.2427 \\ \hline 
+TSM & 0.1884 $^{\blacktriangledown}$  & 0.2563 $^{\blacktriangledown}$  & 0.2360 $^{\blacktriangledown}$  & 0.1941 $^{\blacktriangledown}$  & 0.2717 $^{\blacktriangledown}$  & 0.2370 $^{\triangledown}$  & 0.1583 $^{\blacktriangledown}$ \\ \hline 
+BMN & 0.2102  & 0.2717  & 0.2524 $^{\uparrow}$  & 0.2092 $^{\triangledown}$  & 0.2970  & 0.2167 $^{\blacktriangledown}$  & 0.1707 $^{\blacktriangledown}$ \\ \hline 
+TSA & 0.2123 $^{\uparrow}$  & 0.2721 $^{\uparrow}$  & 0.2551 $^{\triangle}$  & 0.2172  & 0.2971  & 0.2448 $^{\blacktriangledown}$  & 0.1896 $^{\blacktriangledown}$ \\ \hline 
 \end{tabular}
 \end{center}
-\label{table.results}
+\label{table.results.rm3}
 \normalsize
 \end{table*}
 
