@@ -62,7 +62,7 @@ Efron and Golovchinsky \cite{Efron2011} also explore a novel model using tempora
 
 \subsection{Temporally-estimated relevance models}
 
-Each of the above models is also considered in the context of relevance models \cite{Lavrenko2001}. In general, the temporal models are used to score documents in an initial retrieval which are then used to construct relevance models.  Peetz, Meij, and Rijke \cite{Peetz2013a} propose an alternative query modeling approach that relies on the identification of temporal ``bursts'' in pseudo-feedback. 
+Each of the above models is also considered in the context of relevance models \cite{Lavrenko2001}. In each case, the temporal models are used to score documents in an initial retrieval, the results of which used to construct relevance models. Only \cite{Efron2014} re-scores the final results using the temporal model. Peetz, Meij, and Rijke \cite{Peetz2013a} propose an alternative query modeling approach that relies on the identification of temporal ``bursts'' in pseudo-feedback. 
 
 \subsection{Document-specific smoothing}
 
@@ -142,7 +142,8 @@ p_{NPMI} (w \vert t) = \dfrac{npmi(w;t)}{\sum_{w \in W} npmi(w; t)}
 \]
 
 Second, we used the likelihood ratio test to restrict the terms allowed in the model $\theta_t$. Setting $\alpha=0.01$, 
-only terms $w$ found to be significantly associated with time $t$ are added to the model.
+only terms $w$ found to be significantly associated with time $t$ are added to the model. This is the final approach
+used in our reported results.
 
 \section{Experiments and results}
 \subsection{Data}
@@ -154,7 +155,9 @@ and Wall Street Journal (WSJ) 1987-92 with queries 51-100 and 151-200.
 Additional experiments were conducted using the Tweets2011 test collection with queries 1-49 and 50-110.  
 Queries were constructed using only the ``title'' field of the TREC topics. The standard relevance judgments were used. 
 Queries with no documents in the judged pool for a collection were removed.  Information about each collection is presented in Table \ref{table.details}. 
- [Describe Tweets2011 corpus...] All documents and queries are stemmed using the Krovetz \cite{} stemmer and stopwords removed.
+All documents and queries are stemmed using the Krovetz \cite{} stemmer and stopwords removed.
+
+ [Describe Tweets2011 corpus...] 
 
 %\begin{table*}[t]
 \begin{table}[htdp]
@@ -181,20 +184,21 @@ Tweets2011 & 11,908,899 & 1-49  50-110  & 110\\ \hline
 \subsection{Parameter estimation}
 
 Following \cite{Liu2004} and \cite{Wei2006}, the AP collection is used as the training collection to estimate parameters that are then tested on the FT, LA, SJM, and WSJ collections. 
-The Tweets2011 collection (queries 1-49) is used to estimate parameters that are then tested on queries 50-110. Models are optimized for mean average precision (MAP) using a focused search.
+The Tweets2011 collection (queries 1-49) is used to estimate parameters that are then tested on queries 50-110. Models are optimized for mean average precision (MAP) using an exhaustive search.
 
 \subsubsection{Temporal interval}
 
-An important parameter in definition of temporal language models is the temporal interval.  Using the training collection, we explored  daily, weekly, bi-weekly, and monthly intervals.
+An important parameter in the definition of temporal language models is the temporal interval.  Using the AP and Tweets 2011 training collections, we explored hourly, daily, weekly, bi-weekly, and monthly intervals.
+All documents with timestamps in each interval are candidates for inclusion in the associated temporal language model.
 
-Chart performance with different temporal intervals.
+[Chart performance with different temporal intervals.]
 
 \subsubsection{LDA-based language models}
 
 For the LDA-based language models, we attempted to repeat the experiment described in \cite{Wei2006} using off-the-shelf software, specifically Mallet 2.0.7. The Mallet LDA implementation
 has several parameters including the number of topics, number of sampling iterations, and burn-in. For the number of topics, we used 800 as identified by Wei and Croft. Because the implementations
-differ significantly, we cannot use the number of iterations and chains specified by Wei and Croft. We explored several combinations including 500/100, the Mallet default 1000/200, and 5000/1000. 
-We found the effectiveness and speed of the Mallet default 1000/200 to be adequate for this study \footnote{We did find that increasing the number of iterations improved effectiveness, sometimes significantly. However, since 
+differ significantly, we could use the number of iterations and chains specified in \cite{Wei2006}. We explored several combinations of iterations/burn-in including 500/100, the Mallet default 1000/200, and 5000/1000. 
+We found the effectiveness and speed of the Mallet default values to be adequate for this study \footnote{We did find that increasing the number of iterations improved effectiveness, sometimes significantly. However, since 
 LDA-based language models are not the focus of this study, we accepted the default values.}  We accept the original paper's values for the smoothing parameters $\lambda=0.07$ and $\mu=1000$.
 
 \subsubsection{Temporal smoothing parameters}
@@ -225,7 +229,7 @@ LDA 		& $\lambda = 0.7$							& $\lambda = 0.7 $ \\ \hline
 
 \section{Results}
 
-Results are presented in Table \ref{table.results.ql} and \ref{table.results.rm3}.
+Results are presented in Table \ref{table.results.ql} and \ref{table.results.rm3} and \ref{table.posneg.ql} and \ref{table.posneg.rm3}.
 
 \begin{table}[htdp]
 \small
@@ -236,10 +240,10 @@ Results are presented in Table \ref{table.results.ql} and \ref{table.results.rm3
 \bf{Symbol}		& \bf{Description}\\ \hline 
 $\blacktriangle$		&	$p < 0.01$ improvement against the QL baseline \\
 $\blacktriangledown$	&	$p < 0.01$ degradation against the QL baseline \\
-$\triangle$			&	$p < 0.05$ improvement against the QL baseline \\
+$\vartriangle$			&	$p < 0.05$ improvement against the QL baseline \\
 $\triangledown$		&	$p < 0.05$ degradation against the QL baseline \\
 $\uparrow$			&	$p < 0.10$ improvement against the QL baseline \\
-$\downarrow$			&	$p < 0.10$ degradation against the QL baseline \\
+$\downarrow$			&	$p < 0.10$ degradation against the QL baseline \\ \hline
 \end{tabular}
 \end{center}
 \label{table.pval}
@@ -259,7 +263,8 @@ KL & 0.1885  & 0.2571  & 0.2373  & 0.1951  & 0.2724  & 0.2503  & 0.2049 \\ \hlin
 KDE & 0.1894  & 0.2539 $^{\downarrow}$  & 0.2393  & 0.1939  & 0.2722  & 0.2623 $^{\blacktriangle}$  & 0.2146 $^{\blacktriangle}$ \\ \hline 
 TSM & 0.1884  & 0.2563  & 0.2360 $^{\triangledown}$  & 0.1941 $^{\downarrow}$  & 0.2717 $^{\downarrow}$  & 0.2334  & 0.1580 $^{\blacktriangledown}$ \\ \hline 
 BMN & 0.1883  & 0.2591  & 0.2388  & 0.1901 $^{\triangledown}$  & 0.2712  & 0.2000 $^{\blacktriangledown}$  & 0.1565 $^{\blacktriangledown}$ \\ \hline 
-TSA & 0.1889  & 0.2589 $^{\blacktriangle}$  & 0.2395 $^{\triangle}$  & 0.1948  & 0.2726  & 0.2229 $^{\blacktriangledown}$  & 0.1692 $^{\blacktriangledown}$ \\ \hline 
+TSA & 0.1889  & 0.2589 $^{\blacktriangle}$  & 0.2395 $^{\vartriangle}$  & 0.1948  & 0.2726  & 0.2229 $^{\blacktriangledown}$  & 0.1692 $^{\blacktriangledown}$ \\ \hline
+LDA & 0.2155 $^{\blacktriangle}$  & 0.2666  & 0.2572 $^{\uparrow}$  & 0.2157 $^{\blacktriangle}$  & 0.2977 $^{\blacktriangle}$  & 0.2436  & 0.1957 \\ \hline  
 \end{tabular}
 \end{center}
 \label{table.results.ql}
@@ -279,10 +284,47 @@ RM3 & 0.2098  & 0.2684  & 0.2485  & 0.2145  & 0.2975  & 0.2895  & 0.2406 \\ \hli
 KDE & 0.2102  & 0.2680  & 0.2477  & 0.2137  & 0.2954 $^{\triangledown}$  & 0.2890  & 0.2427 \\ \hline 
 TSM & 0.1884 $^{\blacktriangledown}$  & 0.2563 $^{\blacktriangledown}$  & 0.2360 $^{\blacktriangledown}$  & 0.1941 $^{\blacktriangledown}$  & 0.2717 $^{\blacktriangledown}$  & 0.2370 $^{\triangledown}$  & 0.1583 $^{\blacktriangledown}$ \\ \hline 
 BMN & 0.2102  & 0.2717  & 0.2524 $^{\uparrow}$  & 0.2092 $^{\triangledown}$  & 0.2970  & 0.2167 $^{\blacktriangledown}$  & 0.1707 $^{\blacktriangledown}$ \\ \hline 
-TSA & 0.2123 $^{\uparrow}$  & 0.2721 $^{\uparrow}$  & 0.2551 $^{\triangle}$  & 0.2172  & 0.2971  & 0.2448 $^{\blacktriangledown}$  & 0.1896 $^{\blacktriangledown}$ \\ \hline 
+TSA & 0.2123 $^{\uparrow}$  & 0.2721 $^{\uparrow}$  & 0.2551 $^{\vartriangle}$  & 0.2172  & 0.2971  & 0.2448 $^{\blacktriangledown}$  & 0.1896 $^{\blacktriangledown}$ \\ \hline 
+LDA & 0.2349 $^{\blacktriangle}$  & 0.2650  & 0.2721 $^{\uparrow}$  & 0.2299 $^{\vartriangle}$  & 0.3234 $^{\blacktriangle}$  & 0.2588 $^{\triangledown}$  & 0.2139 $^{\triangledown}$ \\ \hline 
 \end{tabular}
 \end{center}
 \label{table.results.rm3}
+\normalsize
+\end{table*}
+
+\begin{table*}[t]
+\small
+\caption{Number of queries with increased/decreased MAP over baseline QL. Values in parenthesis are number of queries with increased/decrease MAP > 0.05. }
+\begin{center}
+\tabcolsep=0.11cm
+\begin{tabular}{l | l | l | l | l | l | l | l}
+\hline
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+KDE & 52/44 (0/0)  & 34/46 (1/3)  & 42/45 (2/1)  & 38/45 (0/0)  & 42/52 (1/0)  & 33/16 (5/1)  & 36/23 (5/1) \\ \hline 
+TSM & 26/63 (1/0)  & 24/51 (0/0)  & 23/59 (0/0)  & 26/58 (0/0)  & 36/59 (0/0)  & 26/22 (10/12)  & 20/40 (4/21) \\ \hline 
+BMN & 44/52 (1/0)  & 28/42 (2/0)  & 31/50 (3/0)  & 27/59 (1/6)  & 29/64 (1/0)  & 11/32 (0/18)  & 7/47 (1/23) \\ \hline 
+TSA & 46/48 (0/0)  & 40/22 (1/0)  & 40/35 (0/0)  & 39/46 (0/0)  & 35/56 (0/0)  & 12/31 (2/12)  & 8/46 (1/17) \\ \hline 
+\end{tabular}
+\end{center}
+\label{table.posneg.ql}
+\normalsize
+\end{table*}
+
+\begin{table*}[t]
+\small
+\caption{Number of queries with increased/decreased MAP over baseline RM3. Values in parenthesis are number of queries with increased/decrease MAP > 0.05. }
+\begin{center}
+\tabcolsep=0.11cm
+\begin{tabular}{l | l | l | l | l | l | l | l}
+\hline
+\bf{Model}& \bf{AP} & \bf{FT} & \bf{LATIMES} & \bf{SJM} & \bf{WSJ} & \bf{TWEETS2011} & \bf{TWEETS2012} \\ \hline 
+KDE & 44/50 (0/0)  & 33/46 (2/0)  & 32/53 (0/0)  & 34/54 (1/0)  & 38/59 (0/0)  & 23/20 (0/1)  & 30/28 (2/0) \\ \hline 
+TSM & 20/77 (0/12)  & 22/67 (3/11)  & 32/63 (3/13)  & 22/71 (2/17)  & 15/86 (1/20)  & 17/33 (5/20)  & 14/46 (3/29) \\ \hline 
+BMN & 52/44 (0/0)  & 42/39 (2/2)  & 43/45 (4/1)  & 30/61 (1/5)  & 33/63 (1/0)  & 12/38 (3/23)  & 13/47 (2/31) \\ \hline 
+TSA & 53/45 (2/1)  & 53/26 (2/1)  & 44/45 (7/2)  & 45/47 (5/4)  & 51/50 (0/1)  & 14/33 (1/17)  & 13/46 (1/24) \\ \hline 
+\end{tabular}
+\end{center}
+\label{table.posneg.rm3}
 \normalsize
 \end{table*}
 
